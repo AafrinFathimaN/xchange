@@ -12,7 +12,7 @@ export default function LoginPage() {
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
               <Users className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold">SkillSwap</span>
+            <span className="text-xl font-bold">Xchange</span>
           </Link>
         </div>
 
@@ -24,10 +24,7 @@ export default function LoginPage() {
           <CardContent>
             <LoginForm />
             <div className="mt-6 text-center text-sm">
-              <span className="text-muted-foreground">Don't have an account? </span>
-              <Link href="/register" className="text-primary hover:underline font-medium">
-                Sign up
-              </Link>
+              <span className="text-muted-foreground">Welcome back! Please sign in to continue.</span>
             </div>
           </CardContent>
         </Card>

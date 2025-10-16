@@ -19,7 +19,7 @@ export default function MessagesPage() {
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                 <Users className="w-5 h-5 text-primary-foreground" />
               </div>
-              <h1 className="text-xl font-bold text-foreground">SkillSwap</h1>
+              <h1 className="text-xl font-bold text-foreground">Xchange</h1>
             </div>
           </div>
           <nav className="hidden md:flex items-center space-x-6">

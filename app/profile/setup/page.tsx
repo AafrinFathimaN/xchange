@@ -13,7 +13,7 @@ export default function ProfileSetupPage() {
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                 <Users className="w-5 h-5 text-primary-foreground" />
               </div>
-              <span className="text-xl font-bold">SkillSwap</span>
+              <span className="text-xl font-bold">Xchange</span>
             </Link>
             <h1 className="text-3xl font-bold mb-2">Complete Your Profile</h1>
             <p className="text-muted-foreground">

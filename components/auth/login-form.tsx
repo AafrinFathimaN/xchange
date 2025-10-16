@@ -1,8 +1,9 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { signInWithEmailAndPassword, signInWithPopup, onAuthStateChanged, signOut } from "firebase/auth"
+import { auth, googleProvider } from "@/firebase"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,22 +13,108 @@ import { Eye, EyeOff, Mail, Lock } from "lucide-react"
 export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState("")
+  const [user, setUser] = useState<any>(null)
+
+  // ✅ Keep user logged in after refresh
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser)
+    })
+    return () => unsubscribe()
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    setIsLoading(false)
+    setError("")
+    try {
+      await signInWithEmailAndPassword(auth, email, password)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
+  const handleGoogleLogin = async () => {
+  setIsLoading(true)
+  try {
+    const result = await signInWithPopup(auth, googleProvider)
+    const user = result.user
+
+    // Send user data to backend
+    await fetch("/api/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: user.uid,
+        name: user.displayName || "No Name",
+        email: user.email,
+      }),
+    })
+    // Send skill data to backend
+    await fetch("/api/skills", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId: user.uid,
+        skill: "React", // or make this dynamic later
+      }),
+    })
+
+    alert("Logged in and saved to backend!")
+  } catch (err:any) {
+    setError(err.message)
+  } finally {
+    setIsLoading(false)
+  }
+}
+
+
+  const handleLogout = async () => {
+    await signOut(auth)
+    setUser(null)
+  }
+
+  // ✅ If logged in, show welcome UI
+  if (user) {
+    return (
+      <div className="text-center space-y-4">
+        <h2 className="text-2xl font-semibold">Welcome, {user.displayName || user.email}!</h2>
+        {user.photoURL && (
+          <img
+            src={user.photoURL}
+            alt="Profile"
+            className="w-16 h-16 rounded-full mx-auto shadow-md"
+          />
+        )}
+        <p className="text-muted-foreground">You are now signed in to Xchange 🎉</p>
+        <Button onClick={handleLogout} className="w-full">
+          Sign Out
+        </Button>
+      </div>
+    )
+  }
+
+  // ✅ Default login form
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="email">Email</Label>
         <div className="relative">
           <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-          <Input id="email" type="email" placeholder="Enter your email" className="pl-10" required />
+          <Input
+            id="email"
+            type="email"
+            placeholder="Enter your email"
+            className="pl-10"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
         </div>
       </div>
 
@@ -41,6 +128,8 @@ export function LoginForm() {
             placeholder="Enter your password"
             className="pl-10 pr-10"
             required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
           />
           <Button
             type="button"
@@ -68,6 +157,8 @@ export function LoginForm() {
         </Button>
       </div>
 
+      {error && <p className="text-red-500 text-sm">{error}</p>}
+
       <Button type="submit" className="w-full" disabled={isLoading}>
         {isLoading ? "Signing in..." : "Sign In"}
       </Button>
@@ -82,7 +173,12 @@ export function LoginForm() {
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <Button variant="outline" type="button">
+        <Button
+          variant="outline"
+          type="button"
+          onClick={handleGoogleLogin}
+          disabled={isLoading}
+        >
           <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
             <path
               d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -103,10 +199,8 @@ export function LoginForm() {
           </svg>
           Google
         </Button>
+
         <Button variant="outline" type="button">
-          <svg className="mr-2 h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z" />
-          </svg>
           Twitter
         </Button>
       </div>

@@ -14,7 +14,7 @@ export default function HomePage() {
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
               <Users className="w-5 h-5 text-primary-foreground" />
             </div>
-            <h1 className="text-xl font-bold text-foreground">SkillShare</h1>
+            <h1 className="text-xl font-bold text-foreground">Xchange</h1>
           </div>
           <nav className="hidden md:flex items-center space-x-6">
             <Link href="#features" className="text-muted-foreground hover:text-foreground transition-colors">
@@ -53,7 +53,7 @@ export default function HomePage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button size="lg" asChild>
-              <Link href="/register">Start Sharing Skills</Link>
+              <Link href="/profile/setup">Start Sharing Skills</Link>
             </Button>
             <Button size="lg" variant="outline" asChild>
               <Link href="#how-it-works">Learn How It Works</Link>

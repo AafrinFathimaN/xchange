@@ -4,11 +4,21 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Home, Search, MessageSquare, Heart, BarChart3, Shield, User, Menu, X } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { auth } from "@/firebase"
+import { onAuthStateChanged, signOut } from "firebase/auth"
 
 export function Navigation() {
   const pathname = usePathname()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setIsAuthenticated(!!user)
+    })
+    return () => unsubscribe()
+  }, [])
 
   const navItems = [
     { href: "/", label: "Home", icon: Home },
@@ -68,9 +78,20 @@ export function Navigation() {
                 Profile
               </Button>
             </Link>
-            <Link href="/login">
-              <Button size="sm">Sign In</Button>
-            </Link>
+            {isAuthenticated ? (
+              <Button
+                size="sm"
+                onClick={() => {
+                  signOut(auth).catch(() => {})
+                }}
+              >
+                Sign Out
+              </Button>
+            ) : (
+              <Link href="/login">
+                <Button size="sm">Sign In</Button>
+              </Link>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -117,11 +138,24 @@ export function Navigation() {
                     Profile
                   </Button>
                 </Link>
-                <Link href="/login" onClick={() => setIsMobileMenuOpen(false)}>
-                  <Button size="sm" className="w-full">
-                    Sign In
+                {isAuthenticated ? (
+                  <Button
+                    size="sm"
+                    className="w-full"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false)
+                      signOut(auth).catch(() => {})
+                    }}
+                  >
+                    Sign Out
                   </Button>
-                </Link>
+                ) : (
+                  <Link href="/login" onClick={() => setIsMobileMenuOpen(false)}>
+                    <Button size="sm" className="w-full">
+                      Sign In
+                    </Button>
+                  </Link>
+                )}
               </div>
             </div>
           </div>

@@ -27,9 +27,11 @@ export function Navigation() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2">
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">SS</span>
+
+              <span className="text-primary-foreground font-bold text-sm">XC</span>
             </div>
-            <span className="font-semibold text-lg text-gray-900 dark:text-gray-100">SkillShare</span>
+            <span className="font-semibold text-lg text-gray-900 dark:text-gray-100">Xchange</span>
+
           </Link>
 
           {/* Desktop Navigation */}

@@ -115,14 +115,21 @@ export function UserCard({ user }: UserCardProps) {
             </div>
 
             <div className="flex gap-2 mt-4">
+
+              <Link href="/messages">
+
               <Button size="sm" className="flex-1">
                 <MessageCircle className="w-3 h-3 mr-1" />
                 Message
               </Button>
+
+              </Link>
+              <Link href="/messages">
               <Button size="sm" variant="outline" className="flex-1 bg-transparent">
                 <Heart className="w-3 h-3 mr-1" />
                 Connect
               </Button>
+              </Link>
             </div>
           </div>
         </div>

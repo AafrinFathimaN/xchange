@@ -10,9 +10,11 @@ import { Suspense } from "react"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "v0 App",
-  description: "Created with v0",
-  generator: "v0.app",
+
+  title: "Xchange",
+  description: "Barter system based skill swap",
+  generator: "Xchange",
+
 }
 
 export default function RootLayout({

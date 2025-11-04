@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Sparkles, Star, MessageCircle, RefreshCw } from "lucide-react"
+import Link from "next/link"
+
 
 const aiRecommendations = [
   {
@@ -115,10 +117,12 @@ export function MatchRecommendations() {
                   </div>
                 </div>
 
+                <Link href="/messages">
                 <Button size="sm" className="w-full mt-3">
                   <MessageCircle className="w-3 h-3 mr-1" />
                   Connect
                 </Button>
+                </Link>
               </CardContent>
             </Card>
           ))}

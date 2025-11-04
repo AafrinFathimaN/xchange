@@ -8,6 +8,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Star, MessageCircle, Calendar, Clock, CheckCircle, X, Heart, Sparkles, Users, TrendingUp } from "lucide-react"
 
+import Link from "next/link"
+
+
 const pendingMatches = [
   {
     id: "1",
@@ -230,10 +233,14 @@ export function MatchesContent() {
                         <X className="w-4 h-4" />
                         Decline
                       </Button>
+
+                      <Link href="/messages">
+
                       <Button variant="ghost" className="flex items-center gap-2">
                         <MessageCircle className="w-4 h-4" />
                         Message
                       </Button>
+                     </Link>
                     </div>
                   </div>
                 </div>

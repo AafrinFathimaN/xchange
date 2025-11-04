@@ -14,6 +14,9 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { X, Plus, MapPin, Clock, Briefcase } from "lucide-react"
 import { useRouter } from "next/navigation"
 
+import Link from "next/link"
+
+
 const skillCategories = [
   "Technology",
   "Design",
@@ -321,9 +324,13 @@ export function ProfileSetupForm() {
             <Button type="button" variant="outline" onClick={prevStep} className="flex-1 bg-transparent">
               Back
             </Button>
+
+            <Link href="/profile/view">
             <Button type="submit" disabled={isLoading} className="flex-1">
               {isLoading ? "Creating Profile..." : "Complete Setup"}
             </Button>
+            </Link>
+
           </div>
         </div>
       )}

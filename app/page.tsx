@@ -149,7 +149,7 @@ export default function HomePage() {
       <section id="how-it-works" className="py-20 px-4">
         <div className="container mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">How SkillShare Works</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">How Xchange Works</h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
               Get started in three simple steps and begin your skill sharing journey today.
             </p>
@@ -196,9 +196,11 @@ export default function HomePage() {
           <p className="text-xl text-muted-foreground mb-8">
             Join thousands of learners and teachers building a collaborative community.
           </p>
+          <Link href="/profile/setup">
           <Button size="lg" asChild>
             <Link href="/register">Create Your Profile Today</Link>
           </Button>
+          </Link>
         </div>
       </section>
 
@@ -210,7 +212,7 @@ export default function HomePage() {
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                 <Users className="w-5 h-5 text-primary-foreground" />
               </div>
-              <span className="text-lg font-semibold">SkillShare</span>
+              <span className="text-lg font-semibold">Xchange</span>
             </div>
             <div className="flex space-x-6 text-sm text-muted-foreground">
               <Link href="/privacy" className="hover:text-foreground transition-colors">
@@ -225,7 +227,7 @@ export default function HomePage() {
             </div>
           </div>
           <div className="mt-8 pt-8 border-t border-border text-center text-sm text-muted-foreground">
-            © 2024 SkillShare. Building communities through skill exchange.
+            © 2025 Xchange. Building communities through skill exchange.
           </div>
         </div>
       </footer>

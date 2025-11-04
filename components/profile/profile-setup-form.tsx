@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,6 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { X, Plus, MapPin, Clock, Briefcase } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { auth } from "@/firebase"
+import { onAuthStateChanged } from "firebase/auth"
 
 import Link from "next/link"
 
@@ -50,6 +52,39 @@ export function ProfileSetupForm() {
   const [availability, setAvailability] = useState<string[]>([])
   const [newSkill, setNewSkill] = useState("")
   const [newGoal, setNewGoal] = useState("")
+  const [location, setLocation] = useState("")
+  const [timezone, setTimezone] = useState("")
+  const [profession, setProfession] = useState("")
+  const [bio, setBio] = useState("")
+  const [sessionLength, setSessionLength] = useState("")
+  const [meetingType, setMeetingType] = useState("")
+  const [volunteer, setVolunteer] = useState(false)
+  const [uid, setUid] = useState<string | null>(null)
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUid(user ? user.uid : null)
+      if (user) {
+        try {
+          const stored = localStorage.getItem(`profile:${user.uid}`)
+          if (stored) {
+            const p = JSON.parse(stored)
+            setLocation(p.location || "")
+            setTimezone(p.timezone || "")
+            setProfession(p.profession || "")
+            setBio(p.bio || "")
+            setSkills(Array.isArray(p.skills) ? p.skills : [])
+            setLearningGoals(Array.isArray(p.learningGoals) ? p.learningGoals : [])
+            setAvailability(Array.isArray(p.availability) ? p.availability : [])
+            setSessionLength(p.sessionLength || "")
+            setMeetingType(p.meetingType || "")
+            setVolunteer(!!p.volunteer)
+          }
+        } catch {}
+      }
+    })
+    return () => unsubscribe()
+  }, [])
 
   const addSkill = () => {
     if (newSkill.trim() && !skills.includes(newSkill.trim())) {
@@ -84,10 +119,27 @@ export function ProfileSetupForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    setIsLoading(false)
-    router.push("/dashboard")
+    try {
+      const finalSkills = newSkill.trim() && !skills.includes(newSkill.trim()) ? [...skills, newSkill.trim()] : skills
+      const finalGoals = newGoal.trim() && !learningGoals.includes(newGoal.trim()) ? [...learningGoals, newGoal.trim()] : learningGoals
+      if (!uid) {
+        // not logged in; store under a guest key
+        const guestKey = "profile:guest"
+        localStorage.setItem(
+          guestKey,
+          JSON.stringify({ location, timezone, profession, bio, skills: finalSkills, learningGoals: finalGoals, availability, sessionLength, meetingType, volunteer })
+        )
+        router.push("/dashboard")
+        return
+      }
+      localStorage.setItem(
+        `profile:${uid}`,
+        JSON.stringify({ location, timezone, profession, bio, skills: finalSkills, learningGoals: finalGoals, availability, sessionLength, meetingType, volunteer })
+      )
+      router.push(`/profile/${uid}`)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const nextStep = () => setCurrentStep(currentStep + 1)
@@ -124,23 +176,23 @@ export function ProfileSetupForm() {
               <Label htmlFor="location">Location</Label>
               <div className="relative">
                 <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input id="location" placeholder="City, Country" className="pl-10" />
+                <Input id="location" placeholder="City, Country" className="pl-10" value={location} onChange={(e) => setLocation(e.target.value)} />
               </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="timezone">Timezone</Label>
               <div className="relative">
                 <Clock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Select>
+                <Select value={timezone} onValueChange={setTimezone}>
                   <SelectTrigger className="pl-10">
                     <SelectValue placeholder="Select timezone" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="utc-8">UTC-8 (PST)</SelectItem>
-                    <SelectItem value="utc-5">UTC-5 (EST)</SelectItem>
-                    <SelectItem value="utc+0">UTC+0 (GMT)</SelectItem>
-                    <SelectItem value="utc+1">UTC+1 (CET)</SelectItem>
-                    <SelectItem value="utc+8">UTC+8 (CST)</SelectItem>
+                    <SelectItem value="UTC-8 (PST)">UTC-8 (PST)</SelectItem>
+                    <SelectItem value="UTC-5 (EST)">UTC-5 (EST)</SelectItem>
+                    <SelectItem value="UTC+0 (GMT)">UTC+0 (GMT)</SelectItem>
+                    <SelectItem value="UTC+1 (CET)">UTC+1 (CET)</SelectItem>
+                    <SelectItem value="UTC+8 (CST)">UTC+8 (CST)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -151,7 +203,7 @@ export function ProfileSetupForm() {
             <Label htmlFor="profession">Profession/Field</Label>
             <div className="relative">
               <Briefcase className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input id="profession" placeholder="e.g., Software Developer, Designer, Teacher" className="pl-10" />
+              <Input id="profession" placeholder="e.g., Software Developer, Designer, Teacher" className="pl-10" value={profession} onChange={(e) => setProfession(e.target.value)} />
             </div>
           </div>
 
@@ -161,6 +213,8 @@ export function ProfileSetupForm() {
               id="bio"
               placeholder="Tell others about yourself, your interests, and what motivates you to share skills..."
               className="min-h-[100px]"
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
             />
           </div>
 
@@ -284,35 +338,35 @@ export function ProfileSetupForm() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="sessionLength">Preferred session length</Label>
-                <Select>
+                <Select value={sessionLength} onValueChange={setSessionLength}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select duration" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="30min">30 minutes</SelectItem>
-                    <SelectItem value="1hour">1 hour</SelectItem>
-                    <SelectItem value="2hours">2 hours</SelectItem>
-                    <SelectItem value="flexible">Flexible</SelectItem>
+                    <SelectItem value="30 minutes">30 minutes</SelectItem>
+                    <SelectItem value="1 hour">1 hour</SelectItem>
+                    <SelectItem value="2 hours">2 hours</SelectItem>
+                    <SelectItem value="Flexible">Flexible</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="meetingType">Meeting preference</Label>
-                <Select>
+                <Select value={meetingType} onValueChange={setMeetingType}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select preference" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="online">Online only</SelectItem>
-                    <SelectItem value="in-person">In-person only</SelectItem>
-                    <SelectItem value="both">Both online and in-person</SelectItem>
+                    <SelectItem value="Online only">Online only</SelectItem>
+                    <SelectItem value="In-person only">In-person only</SelectItem>
+                    <SelectItem value="Both online and in-person">Both online and in-person</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="flex items-center space-x-2">
-                <Checkbox id="volunteer" />
+                <Checkbox id="volunteer" checked={volunteer} onCheckedChange={(checked) => setVolunteer(!!checked)} />
                 <Label htmlFor="volunteer" className="text-sm">
                   I'm interested in volunteering to help newcomers
                 </Label>
@@ -324,12 +378,9 @@ export function ProfileSetupForm() {
             <Button type="button" variant="outline" onClick={prevStep} className="flex-1 bg-transparent">
               Back
             </Button>
-
-            <Link href="/profile/view">
             <Button type="submit" disabled={isLoading} className="flex-1">
-              {isLoading ? "Creating Profile..." : "Complete Setup"}
+              {isLoading ? "Saving..." : "Complete Setup"}
             </Button>
-            </Link>
 
           </div>
         </div>

@@ -12,13 +12,38 @@ export function Navigation() {
   const pathname = usePathname()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [uid, setUid] = useState<string | null>(null)
+  const [hasProfile, setHasProfile] = useState(false)
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setIsAuthenticated(!!user)
+      setUid(user ? user.uid : null)
     })
     return () => unsubscribe()
   }, [])
+
+  const refreshHasProfile = () => {
+    try {
+      if (!uid) {
+        setHasProfile(false)
+        return
+      }
+      const raw = localStorage.getItem(`profile:${uid}`)
+      setHasProfile(!!raw)
+    } catch {
+      setHasProfile(false)
+    }
+  }
+
+  useEffect(() => {
+    refreshHasProfile()
+    const onFocus = () => refreshHasProfile()
+    window.addEventListener("focus", onFocus)
+    return () => window.removeEventListener("focus", onFocus)
+  }, [uid])
+
+  const profileHref = isAuthenticated && uid && hasProfile ? `/profile/${uid}` : "/profile/setup"
 
   const navItems = [
     { href: "/", label: "Home", icon: Home },
@@ -69,7 +94,7 @@ export function Navigation() {
 
           {/* User Actions */}
           <div className="hidden md:flex items-center gap-2">
-            <Link href="/profile/setup">
+            <Link href={profileHref}>
               <Button
                 variant="outline"
                 size="sm"
@@ -129,7 +154,7 @@ export function Navigation() {
                 )
               })}
               <div className="border-t border-gray-200 dark:border-gray-700 pt-2 mt-2 flex flex-col gap-2">
-                <Link href="/profile/setup" onClick={() => setIsMobileMenuOpen(false)}>
+                <Link href={profileHref} onClick={() => setIsMobileMenuOpen(false)}>
                   <Button
                     variant="outline"
                     size="sm"

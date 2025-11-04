@@ -1,67 +1,96 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { MapPin, Clock, Star, MessageCircle, Heart, Award, Calendar, Briefcase, CheckCircle } from "lucide-react"
+import { auth } from "@/firebase"
+import { onAuthStateChanged } from "firebase/auth"
 
 interface ProfileViewProps {
   userId: string
 }
 
-// Mock data - in real app this would come from API
-const mockProfile = {
-  id: "1",
-  name: "Sarah Chen",
-  avatar: "/professional-woman-diverse.png",
-  bio: "Passionate software developer with 5 years of experience. Love teaching others and learning new technologies. Always excited to help newcomers get started in tech!",
-  location: "San Francisco, CA",
-  timezone: "UTC-8 (PST)",
-  profession: "Senior Software Developer",
-  rating: 4.9,
-  reviewCount: 47,
-  skillPoints: 1250,
-  isVerified: true,
-  isVolunteer: true,
-  joinedDate: "March 2023",
-  skills: [
-    { name: "JavaScript", level: "Expert", endorsements: 23 },
-    { name: "React", level: "Expert", endorsements: 19 },
-    { name: "Python", level: "Advanced", endorsements: 15 },
-    { name: "UI/UX Design", level: "Intermediate", endorsements: 8 },
-    { name: "Mentoring", level: "Expert", endorsements: 31 },
-  ],
-  learningGoals: ["Machine Learning", "DevOps", "Spanish", "Photography"],
-  availability: ["Weekday evenings", "Weekend afternoons"],
-  recentActivity: [
-    { type: "skill_exchange", description: "Helped John with React basics", date: "2 days ago" },
-    { type: "volunteer", description: "Mentored 3 newcomers in JavaScript", date: "1 week ago" },
-    { type: "achievement", description: "Earned 'Helpful Mentor' badge", date: "2 weeks ago" },
-  ],
-  reviews: [
-    {
-      id: "1",
-      reviewer: "Mike Johnson",
-      rating: 5,
-      comment: "Sarah is an amazing teacher! She helped me understand React hooks in just one session.",
-      date: "1 week ago",
-    },
-    {
-      id: "2",
-      reviewer: "Lisa Wang",
-      rating: 5,
-      comment: "Very patient and knowledgeable. Great at breaking down complex concepts.",
-      date: "2 weeks ago",
-    },
-  ],
-}
-
 export function ProfileView({ userId }: ProfileViewProps) {
   const [activeTab, setActiveTab] = useState("overview")
-  const profile = mockProfile // In real app, fetch based on userId
+  const [authUid, setAuthUid] = useState<string | null>(null)
+  const [authName, setAuthName] = useState<string | null>(null)
+  const [authPhoto, setAuthPhoto] = useState<string | null>(null)
+  const [profile, setProfile] = useState<any | null>(null)
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      setAuthUid(user ? user.uid : null)
+      setAuthName(user ? user.displayName : null)
+      setAuthPhoto(user ? user.photoURL : null)
+    })
+    return () => unsub()
+  }, [])
+
+  const loadProfile = () => {
+    try {
+      let raw = localStorage.getItem(`profile:${userId}`)
+      if (!raw && authUid === userId) {
+        // fallback: migrate guest data if present
+        raw = localStorage.getItem("profile:guest") || null
+      }
+      const stored = raw ? JSON.parse(raw) : null
+      const skills = Array.isArray(stored?.skills) ? stored.skills : []
+      const learningGoals = Array.isArray(stored?.learningGoals) ? stored.learningGoals : []
+      setProfile({
+        id: userId,
+        name: authUid === userId ? authName || "Your Profile" : "User",
+        avatar: authUid === userId ? authPhoto || "/placeholder-user.jpg" : "/placeholder-user.jpg",
+        bio: stored?.bio || "",
+        location: stored?.location || "",
+        timezone: stored?.timezone || "",
+        profession: stored?.profession || "",
+        rating: 0,
+        reviewCount: 0,
+        skillPoints: 0,
+        isVerified: false,
+        isVolunteer: !!stored?.volunteer,
+        joinedDate: "",
+        skills,
+        learningGoals,
+        availability: Array.isArray(stored?.availability) ? stored.availability : [],
+        recentActivity: [],
+        reviews: [],
+      })
+    } catch {
+      setProfile({
+        id: userId,
+        name: authUid === userId ? authName || "Your Profile" : "User",
+        avatar: authUid === userId ? authPhoto || "/placeholder-user.jpg" : "/placeholder-user.jpg",
+        bio: "",
+        location: "",
+        timezone: "",
+        profession: "",
+        rating: 0,
+        reviewCount: 0,
+        skillPoints: 0,
+        isVerified: false,
+        isVolunteer: false,
+        joinedDate: "",
+        skills: [],
+        learningGoals: [],
+        availability: [],
+        recentActivity: [],
+        reviews: [],
+      })
+    }
+  }
+
+  useEffect(() => {
+    loadProfile()
+    const onFocus = () => loadProfile()
+    window.addEventListener("focus", onFocus)
+    return () => window.removeEventListener("focus", onFocus)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, authUid, authName, authPhoto])
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -71,28 +100,28 @@ export function ProfileView({ userId }: ProfileViewProps) {
           <div className="flex flex-col md:flex-row gap-6">
             <div className="flex flex-col items-center md:items-start">
               <Avatar className="w-24 h-24 mb-4">
-                <AvatarImage src={profile.avatar || "/placeholder.svg"} alt={profile.name} />
+                <AvatarImage src={profile?.avatar || "/placeholder.svg"} alt={profile?.name || "User"} />
                 <AvatarFallback>
-                  {profile.name
+                  {(profile?.name || "User")
                     .split(" ")
                     .map((n) => n[0])
                     .join("")}
                 </AvatarFallback>
               </Avatar>
               <div className="flex items-center gap-2 mb-2">
-                <h1 className="text-2xl font-bold">{profile.name}</h1>
-                {profile.isVerified && <CheckCircle className="w-5 h-5 text-primary" />}
-                {profile.isVolunteer && <Heart className="w-5 h-5 text-secondary" />}
+                <h1 className="text-2xl font-bold">{profile?.name}</h1>
+                {profile?.isVerified && <CheckCircle className="w-5 h-5 text-primary" />}
+                {profile?.isVolunteer && <Heart className="w-5 h-5 text-secondary" />}
               </div>
               <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
                 <div className="flex items-center gap-1">
                   <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                  <span>{profile.rating}</span>
-                  <span>({profile.reviewCount} reviews)</span>
+                  <span>{profile?.rating}</span>
+                  <span>({profile?.reviewCount} reviews)</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <Award className="w-4 h-4" />
-                  <span>{profile.skillPoints} points</span>
+                  <span>{profile?.skillPoints} points</span>
                 </div>
               </div>
             </div>
@@ -101,30 +130,27 @@ export function ProfileView({ userId }: ProfileViewProps) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div className="flex items-center gap-2 text-sm">
                   <MapPin className="w-4 h-4 text-muted-foreground" />
-                  <span>{profile.location}</span>
+                  <span>{profile?.location || "Add your location in profile setup."}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <Clock className="w-4 h-4 text-muted-foreground" />
-                  <span>{profile.timezone}</span>
+                  <span>{profile?.timezone || "Select your timezone in profile setup."}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <Briefcase className="w-4 h-4 text-muted-foreground" />
-                  <span>{profile.profession}</span>
+                  <span>{profile?.profession || "Your profession"}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <Calendar className="w-4 h-4 text-muted-foreground" />
-                  <span>Joined {profile.joinedDate}</span>
+                  <span>{profile?.joinedDate || "Joined date"}</span>
                 </div>
               </div>
-              <p className="text-muted-foreground mb-4">{profile.bio}</p>
+              <p className="text-muted-foreground mb-4">{profile?.bio || "Tell others about yourself in profile setup."}</p>
               <div className="flex gap-3">
-                <Button>
-                  <MessageCircle className="w-4 h-4 mr-2" />
-                  Send Message
-                </Button>
-                <Button variant="outline">
-                  <Heart className="w-4 h-4 mr-2" />
-                  Request Skill Exchange
+                <Button asChild>
+                  <a href="/profile/edit">
+                    Edit Profile
+                  </a>
                 </Button>
               </div>
             </div>
@@ -161,15 +187,25 @@ export function ProfileView({ userId }: ProfileViewProps) {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {profile.skills.map((skill) => (
-                  <div key={skill.name} className="flex items-center justify-between">
+                {(!profile || profile.skills.length === 0) && (
+                  <div className="text-sm text-muted-foreground">Add skills in profile setup.</div>
+                )}
+                {profile && profile.skills.map((skill: string | { name: string; level?: string; endorsements?: number }) => {
+                  const name = typeof skill === "string" ? skill : skill.name
+                  const level = typeof skill === "string" ? "" : (skill.level || "")
+                  const endorsements = typeof skill === "string" ? undefined : skill.endorsements
+                  return (
+                  <div key={name} className="flex items-center justify-between">
                     <div>
-                      <div className="font-medium">{skill.name}</div>
-                      <div className="text-sm text-muted-foreground">{skill.level}</div>
+                      <div className="font-medium">{name}</div>
+                      {level && <div className="text-sm text-muted-foreground">{level}</div>}
                     </div>
-                    <Badge variant="secondary">{skill.endorsements} endorsements</Badge>
+                    {typeof endorsements === "number" && (
+                      <Badge variant="secondary">{endorsements} endorsements</Badge>
+                    )}
                   </div>
-                ))}
+                  )
+                })}
               </div>
             </CardContent>
           </Card>
@@ -180,7 +216,10 @@ export function ProfileView({ userId }: ProfileViewProps) {
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2">
-                {profile.learningGoals.map((goal) => (
+                {(!profile || profile.learningGoals.length === 0) && (
+                  <div className="text-sm text-muted-foreground">Add learning goals in profile setup.</div>
+                )}
+                {profile && profile.learningGoals.map((goal: string) => (
                   <Badge key={goal} variant="outline">
                     {goal}
                   </Badge>
@@ -195,7 +234,10 @@ export function ProfileView({ userId }: ProfileViewProps) {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {profile.availability.map((time) => (
+                {(!profile || profile.availability.length === 0) && (
+                  <div className="text-sm text-muted-foreground">Select availability in profile setup.</div>
+                )}
+                {profile && profile.availability.map((time: string) => (
                   <div key={time} className="flex items-center gap-2">
                     <Clock className="w-4 h-4 text-muted-foreground" />
                     <span className="text-sm">{time}</span>
@@ -210,16 +252,8 @@ export function ProfileView({ userId }: ProfileViewProps) {
               <CardTitle className="text-lg">Recent Activity</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {profile.recentActivity.map((activity, index) => (
-                  <div key={index} className="flex items-start gap-3">
-                    <div className="w-2 h-2 bg-primary rounded-full mt-2" />
-                    <div>
-                      <div className="text-sm">{activity.description}</div>
-                      <div className="text-xs text-muted-foreground">{activity.date}</div>
-                    </div>
-                  </div>
-                ))}
+              <div className="space-y-3 text-sm text-muted-foreground">
+                No activity yet.
               </div>
             </CardContent>
           </Card>
@@ -230,38 +264,10 @@ export function ProfileView({ userId }: ProfileViewProps) {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Reviews & Ratings</CardTitle>
-            <CardDescription>What others say about {profile.name}</CardDescription>
+            <CardDescription>What others say about {profile?.name || "User"}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-6">
-              {profile.reviews.map((review) => (
-                <div key={review.id}>
-                  <div className="flex items-start gap-4">
-                    <Avatar className="w-10 h-10">
-                      <AvatarFallback>
-                        {review.reviewer
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium">{review.reviewer}</span>
-                        <div className="flex">
-                          {[...Array(review.rating)].map((_, i) => (
-                            <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                          ))}
-                        </div>
-                        <span className="text-sm text-muted-foreground">{review.date}</span>
-                      </div>
-                      <p className="text-sm text-muted-foreground">{review.comment}</p>
-                    </div>
-                  </div>
-                  {review.id !== profile.reviews[profile.reviews.length - 1].id && <Separator className="mt-4" />}
-                </div>
-              ))}
-            </div>
+            <div className="space-y-6 text-sm text-muted-foreground">No reviews yet.</div>
           </CardContent>
         </Card>
       )}

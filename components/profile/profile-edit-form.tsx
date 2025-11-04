@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -14,6 +14,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { X, Plus, Upload, MapPin, Clock, Briefcase } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { auth } from "@/firebase"
+import { onAuthStateChanged } from "firebase/auth"
 
 const availabilityOptions = [
   "Weekday mornings",
@@ -27,24 +29,51 @@ const availabilityOptions = [
 export function ProfileEditForm() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
+  const [uid, setUid] = useState<string | null>(null)
 
-  // Mock current profile data
   const [formData, setFormData] = useState({
-    name: "Sarah Chen",
-    bio: "Passionate software developer with 5 years of experience. Love teaching others and learning new technologies.",
-    location: "San Francisco, CA",
-    timezone: "utc-8",
-    profession: "Senior Software Developer",
-    sessionLength: "1hour",
-    meetingType: "both",
-    isVolunteer: true,
+    name: "",
+    bio: "",
+    location: "",
+    timezone: "",
+    profession: "",
+    sessionLength: "",
+    meetingType: "",
+    isVolunteer: false,
   })
 
-  const [skills, setSkills] = useState(["JavaScript", "React", "Python", "UI/UX Design", "Mentoring"])
-  const [learningGoals, setLearningGoals] = useState(["Machine Learning", "DevOps", "Spanish", "Photography"])
-  const [availability, setAvailability] = useState(["Weekday evenings", "Weekend afternoons"])
+  const [skills, setSkills] = useState<string[]>([])
+  const [learningGoals, setLearningGoals] = useState<string[]>([])
+  const [availability, setAvailability] = useState<string[]>([])
   const [newSkill, setNewSkill] = useState("")
   const [newGoal, setNewGoal] = useState("")
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      setUid(user ? user.uid : null)
+      try {
+        const key = user ? `profile:${user.uid}` : "profile:guest"
+        const raw = localStorage.getItem(key)
+        const stored = raw ? JSON.parse(raw) : null
+        if (stored) {
+          setFormData({
+            name: user?.displayName || "",
+            bio: stored.bio || "",
+            location: stored.location || "",
+            timezone: stored.timezone || "",
+            profession: stored.profession || "",
+            sessionLength: stored.sessionLength || "",
+            meetingType: stored.meetingType || "",
+            isVolunteer: !!stored.volunteer,
+          })
+          setSkills(Array.isArray(stored.skills) ? stored.skills : [])
+          setLearningGoals(Array.isArray(stored.learningGoals) ? stored.learningGoals : [])
+          setAvailability(Array.isArray(stored.availability) ? stored.availability : [])
+        }
+      } catch {}
+    })
+    return () => unsub()
+  }, [])
 
   const addSkill = () => {
     if (newSkill.trim() && !skills.includes(newSkill.trim())) {
@@ -79,10 +108,29 @@ export function ProfileEditForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    setIsLoading(false)
-    router.push("/dashboard")
+    try {
+      const key = uid ? `profile:${uid}` : "profile:guest"
+      const payload = {
+        location: formData.location,
+        timezone: formData.timezone,
+        profession: formData.profession,
+        bio: formData.bio,
+        skills,
+        learningGoals,
+        availability,
+        sessionLength: formData.sessionLength,
+        meetingType: formData.meetingType,
+        volunteer: formData.isVolunteer,
+      }
+      localStorage.setItem(key, JSON.stringify(payload))
+      if (uid) {
+        router.push(`/profile/${uid}`)
+      } else {
+        router.push("/dashboard")
+      }
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -139,19 +187,16 @@ export function ProfileEditForm() {
               <Label htmlFor="timezone">Timezone</Label>
               <div className="relative">
                 <Clock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Select
-                  value={formData.timezone}
-                  onValueChange={(value) => setFormData({ ...formData, timezone: value })}
-                >
+                <Select value={formData.timezone} onValueChange={(value) => setFormData({ ...formData, timezone: value })}>
                   <SelectTrigger className="pl-10">
-                    <SelectValue />
+                    <SelectValue placeholder="Select timezone" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="utc-8">UTC-8 (PST)</SelectItem>
-                    <SelectItem value="utc-5">UTC-5 (EST)</SelectItem>
-                    <SelectItem value="utc+0">UTC+0 (GMT)</SelectItem>
-                    <SelectItem value="utc+1">UTC+1 (CET)</SelectItem>
-                    <SelectItem value="utc+8">UTC+8 (CST)</SelectItem>
+                    <SelectItem value="UTC-8 (PST)">UTC-8 (PST)</SelectItem>
+                    <SelectItem value="UTC-5 (EST)">UTC-5 (EST)</SelectItem>
+                    <SelectItem value="UTC+0 (GMT)">UTC+0 (GMT)</SelectItem>
+                    <SelectItem value="UTC+1 (CET)">UTC+1 (CET)</SelectItem>
+                    <SelectItem value="UTC+8 (CST)">UTC+8 (CST)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -273,13 +318,13 @@ export function ProfileEditForm() {
                 onValueChange={(value) => setFormData({ ...formData, sessionLength: value })}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Select duration" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="30min">30 minutes</SelectItem>
-                  <SelectItem value="1hour">1 hour</SelectItem>
-                  <SelectItem value="2hours">2 hours</SelectItem>
-                  <SelectItem value="flexible">Flexible</SelectItem>
+                  <SelectItem value="30 minutes">30 minutes</SelectItem>
+                  <SelectItem value="1 hour">1 hour</SelectItem>
+                  <SelectItem value="2 hours">2 hours</SelectItem>
+                  <SelectItem value="Flexible">Flexible</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -291,12 +336,12 @@ export function ProfileEditForm() {
                 onValueChange={(value) => setFormData({ ...formData, meetingType: value })}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Select preference" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="online">Online only</SelectItem>
-                  <SelectItem value="in-person">In-person only</SelectItem>
-                  <SelectItem value="both">Both online and in-person</SelectItem>
+                  <SelectItem value="Online only">Online only</SelectItem>
+                  <SelectItem value="In-person only">In-person only</SelectItem>
+                  <SelectItem value="Both online and in-person">Both online and in-person</SelectItem>
                 </SelectContent>
               </Select>
             </div>

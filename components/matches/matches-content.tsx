@@ -1,17 +1,23 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
 import { Star, MessageCircle, Calendar, Clock, CheckCircle, X, Heart, Sparkles, Users, TrendingUp } from "lucide-react"
+import { auth } from "@/firebase"
+import { onAuthStateChanged } from "firebase/auth"
 
 import Link from "next/link"
 
 
-const pendingMatches = [
+const defaultPendingMatches = [
   {
     id: "1",
     name: "Alex Rodriguez",
@@ -36,7 +42,7 @@ const pendingMatches = [
   },
 ]
 
-const activeMatches = [
+const defaultActiveMatches = [
   {
     id: "1",
     name: "James Chen",
@@ -65,7 +71,7 @@ const activeMatches = [
   },
 ]
 
-const completedMatches = [
+const defaultCompletedMatches = [
   {
     id: "1",
     name: "David Kim",
@@ -92,15 +98,190 @@ const completedMatches = [
 
 export function MatchesContent() {
   const [activeTab, setActiveTab] = useState("pending")
+  const [uid, setUid] = useState<string | null>(null)
+  const [pendingMatches, setPendingMatches] = useState(defaultPendingMatches)
+  const [activeMatches, setActiveMatches] = useState(defaultActiveMatches)
+  const [completedMatches, setCompletedMatches] = useState(defaultCompletedMatches)
+  
+  // Dialog states
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false)
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
+  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null)
+  
+  // Schedule form state
+  const [sessionDate, setSessionDate] = useState("")
+  const [sessionTime, setSessionTime] = useState("")
+  const [sessionNotes, setSessionNotes] = useState("")
+  
+  // Review form state
+  const [reviewRating, setReviewRating] = useState(0)
+  const [reviewText, setReviewText] = useState("")
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      setUid(user ? user.uid : null)
+      if (user) {
+        try {
+          const stored = localStorage.getItem(`matches:${user.uid}`)
+          if (stored) {
+            const data = JSON.parse(stored)
+            if (Array.isArray(data.pending)) setPendingMatches(data.pending)
+            if (Array.isArray(data.active)) setActiveMatches(data.active)
+            if (Array.isArray(data.completed)) setCompletedMatches(data.completed)
+          } else {
+            // Initialize with defaults if no stored data
+            localStorage.setItem(
+              `matches:${user.uid}`,
+              JSON.stringify({
+                pending: defaultPendingMatches,
+                active: defaultActiveMatches,
+                completed: defaultCompletedMatches,
+              })
+            )
+          }
+        } catch {
+          // If parsing fails, use defaults
+        }
+      }
+    })
+    return () => unsub()
+  }, [])
+
+  const saveMatches = (pending: typeof pendingMatches, active: typeof activeMatches, completed?: typeof completedMatches) => {
+    if (!uid) return
+    try {
+      localStorage.setItem(
+        `matches:${uid}`,
+        JSON.stringify({ 
+          pending, 
+          active,
+          completed: completed || completedMatches
+        })
+      )
+    } catch {}
+  }
+
+  const handleOpenSchedule = (matchId: string) => {
+    setSelectedMatchId(matchId)
+    const match = activeMatches.find((m) => m.id === matchId)
+    if (match && match.nextSession && match.nextSession !== "To be scheduled") {
+      // Try to parse existing session date/time if available
+      // For now, just clear the form
+      setSessionDate("")
+      setSessionTime("")
+      setSessionNotes("")
+    } else {
+      setSessionDate("")
+      setSessionTime("")
+      setSessionNotes("")
+    }
+    setScheduleDialogOpen(true)
+  }
+
+  const handleScheduleSession = () => {
+    if (!selectedMatchId || !sessionDate || !sessionTime) return
+    
+    const match = activeMatches.find((m) => m.id === selectedMatchId)
+    if (!match) return
+
+    const date = new Date(sessionDate)
+    const formattedDate = date.toLocaleDateString("en-US", { 
+      weekday: "long", 
+      year: "numeric", 
+      month: "long", 
+      day: "numeric" 
+    })
+    const formattedTime = new Date(`${sessionDate}T${sessionTime}`).toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true
+    })
+
+    const updatedMatches = activeMatches.map((m) =>
+      m.id === selectedMatchId
+        ? {
+            ...m,
+            nextSession: `${formattedDate}, ${formattedTime}`,
+            status: "Scheduled",
+            sessionNotes: sessionNotes || undefined,
+          }
+        : m
+    )
+
+    setActiveMatches(updatedMatches)
+    saveMatches(pendingMatches, updatedMatches)
+    setScheduleDialogOpen(false)
+    setSessionDate("")
+    setSessionTime("")
+    setSessionNotes("")
+    setSelectedMatchId(null)
+  }
+
+  const handleOpenReview = (matchId: string) => {
+    setSelectedMatchId(matchId)
+    setReviewRating(0)
+    setReviewText("")
+    setReviewDialogOpen(true)
+  }
+
+  const handleSubmitReview = () => {
+    if (!selectedMatchId || reviewRating === 0) return
+    
+    const match = activeMatches.find((m) => m.id === selectedMatchId)
+    if (!match) return
+
+    const newCompleted = [
+      ...completedMatches,
+      {
+        ...match,
+        rating: reviewRating,
+        completedAt: "Just now",
+        feedback: reviewText || "No feedback provided.",
+        sessionsCompleted: (match.sessionsCompleted || 0) + 1,
+      },
+    ]
+
+    const newActive = activeMatches.filter((m) => m.id !== selectedMatchId)
+
+    setActiveMatches(newActive)
+    setCompletedMatches(newCompleted)
+    saveMatches(pendingMatches, newActive, newCompleted)
+    setReviewDialogOpen(false)
+    setReviewRating(0)
+    setReviewText("")
+    setSelectedMatchId(null)
+    setActiveTab("completed")
+  }
 
   const handleAcceptMatch = (matchId: string) => {
-    console.log("Accepting match:", matchId)
-    // Handle match acceptance
+    const match = pendingMatches.find((m) => m.id === matchId)
+    if (!match) return
+
+    const newPending = pendingMatches.filter((m) => m.id !== matchId)
+    const newActive = [
+      ...activeMatches,
+      {
+        ...match,
+        status: "Scheduled",
+        nextSession: "To be scheduled",
+        sessionsCompleted: 0,
+        rating: 0,
+        lastActivity: "Just now",
+      },
+    ]
+
+    setPendingMatches(newPending)
+    setActiveMatches(newActive)
+    saveMatches(newPending, newActive)
+
+    // Switch to active tab to show the newly accepted match
+    setActiveTab("active")
   }
 
   const handleDeclineMatch = (matchId: string) => {
-    console.log("Declining match:", matchId)
-    // Handle match decline
+    const newPending = pendingMatches.filter((m) => m.id !== matchId)
+    setPendingMatches(newPending)
+    saveMatches(newPending, activeMatches)
   }
 
   return (
@@ -169,6 +350,13 @@ export function MatchesContent() {
         </TabsList>
 
         <TabsContent value="pending" className="space-y-4">
+          {pendingMatches.length === 0 && (
+            <Card>
+              <CardContent className="p-8 text-center text-muted-foreground">
+                No pending matches. Check back later!
+              </CardContent>
+            </Card>
+          )}
           {pendingMatches.map((match) => (
             <Card key={match.id} className="border-border">
               <CardContent className="p-6">
@@ -250,6 +438,13 @@ export function MatchesContent() {
         </TabsContent>
 
         <TabsContent value="active" className="space-y-4">
+          {activeMatches.length === 0 && (
+            <Card>
+              <CardContent className="p-8 text-center text-muted-foreground">
+                No active matches yet. Accept a pending match to get started!
+              </CardContent>
+            </Card>
+          )}
           {activeMatches.map((match) => (
             <Card key={match.id} className="border-border">
               <CardContent className="p-6">
@@ -316,15 +511,25 @@ export function MatchesContent() {
                     </div>
 
                     <div className="flex gap-3">
+                      <Link href="/messages">
                       <Button className="flex items-center gap-2">
                         <MessageCircle className="w-4 h-4" />
                         Message
                       </Button>
-                      <Button variant="outline" className="flex items-center gap-2 bg-transparent">
+                      </Link>
+                      <Button 
+                        variant="outline" 
+                        className="flex items-center gap-2 bg-transparent"
+                        onClick={() => handleOpenSchedule(match.id)}
+                      >
                         <Calendar className="w-4 h-4" />
                         Schedule Session
                       </Button>
-                      <Button variant="ghost" className="flex items-center gap-2">
+                      <Button 
+                        variant="ghost" 
+                        className="flex items-center gap-2"
+                        onClick={() => handleOpenReview(match.id)}
+                      >
                         <Heart className="w-4 h-4" />
                         Leave Review
                       </Button>
@@ -400,6 +605,117 @@ export function MatchesContent() {
           ))}
         </TabsContent>
       </Tabs>
+
+      {/* Schedule Session Dialog */}
+      <Dialog open={scheduleDialogOpen} onOpenChange={setScheduleDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Schedule Session</DialogTitle>
+            <DialogDescription>
+              Schedule a skill exchange session with your match
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="session-date">Date</Label>
+              <Input
+                id="session-date"
+                type="date"
+                value={sessionDate}
+                onChange={(e) => setSessionDate(e.target.value)}
+                min={new Date().toISOString().split("T")[0]}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="session-time">Time</Label>
+              <Input
+                id="session-time"
+                type="time"
+                value={sessionTime}
+                onChange={(e) => setSessionTime(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="session-notes">Notes (Optional)</Label>
+              <Textarea
+                id="session-notes"
+                placeholder="Add any notes or agenda items for this session..."
+                value={sessionNotes}
+                onChange={(e) => setSessionNotes(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setScheduleDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleScheduleSession} disabled={!sessionDate || !sessionTime}>
+              Schedule Session
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Leave Review Dialog */}
+      <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Leave a Review</DialogTitle>
+            <DialogDescription>
+              Share your experience and rate your skill exchange
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Rating</Label>
+              <div className="flex items-center gap-2">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setReviewRating(star)}
+                    className="focus:outline-none"
+                  >
+                    <Star
+                      className={`w-8 h-8 transition-colors ${
+                        star <= reviewRating
+                          ? "fill-yellow-400 text-yellow-400"
+                          : "text-gray-300"
+                      }`}
+                    />
+                  </button>
+                ))}
+                {reviewRating > 0 && (
+                  <span className="ml-2 text-sm text-muted-foreground">
+                    {reviewRating} {reviewRating === 1 ? "star" : "stars"}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="review-text">Your Review</Label>
+              <Textarea
+                id="review-text"
+                placeholder="Share your experience with this skill exchange..."
+                value={reviewText}
+                onChange={(e) => setReviewText(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReviewDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmitReview} disabled={reviewRating === 0}>
+              Submit Review
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

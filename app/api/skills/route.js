@@ -1,16 +1,34 @@
-import { NextResponse } from "next/server"
+import { NextResponse } from "next/server";
+import connectToDatabase from "@/lib/mongodb";
+import Skill from "@/models/skill";
 
-let skills = [] // temporary in-memory storage
-
-// GET all skills
 export async function GET() {
-  return NextResponse.json(skills)
+  try {
+    await connectToDatabase();
+    const skills = await Skill.find();
+    return NextResponse.json(skills);
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ message: "Server error" }, { status: 500 });
+  }
 }
 
-// POST a new skill
 export async function POST(request) {
-  const { userId, skill } = await request.json()
+  try {
+    await connectToDatabase();
+    const { userId, skill } = await request.json();
 
-  skills.push({ userId, skill })
-  return NextResponse.json({ message: "Skill added", skills })
+    if (!userId || !skill) {
+      return NextResponse.json(
+        { message: "Missing required fields (userId or skill)" },
+        { status: 400 }
+      );
+    }
+
+    const newSkill = await Skill.create({ userId, skill });
+    return NextResponse.json({ message: "Skill added", skill: newSkill });
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ message: "Server error" }, { status: 500 });
+  }
 }
